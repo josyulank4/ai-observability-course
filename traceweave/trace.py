@@ -1,11 +1,12 @@
 """Follow One Request Through the Agent — Lesson 13 DEMO.
 
-One agent request as a span tree: a root span holding retrieval, LLM
-and tool spans, each with a start offset and a duration. The demo
-computes the wall-clock total, walks the critical path (the chain of
-children that actually decides when the request finishes), names the
-slowest span, and surfaces the planted failed tool span that a flat
-log line would have buried.
+START SCAFFOLD (tag l13-start): the SPANS table and the dict builder
+are given. In the recorded session you will write, live:
+  1. total_ms        — wall-clock span of the whole request
+  2. critical_path   — root, then repeatedly the child that finishes last
+  3. critical_path_ms
+  4. slowest_span    — longest non-root span by duration
+  5. failed_spans    — every span whose status is error
 
 Run:  python -m traceweave.trace
 """
@@ -28,55 +29,6 @@ def build_trace() -> list[dict]:
             for n, k, p, s, d, st in SPANS]
 
 
-def total_ms(spans: list[dict]) -> float:
-    return max(s["end_ms"] for s in spans) - min(s["start_ms"] for s in spans)
-
-
-def critical_path(spans: list[dict]) -> list[dict]:
-    """Root, then repeatedly the child that finishes last: the chain
-    that decides when the request can complete."""
-    children: dict[str, list[dict]] = {}
-    for s in spans:
-        if s["parent"] is not None:
-            children.setdefault(s["parent"], []).append(s)
-    root = next(s for s in spans if s["parent"] is None)
-    path = [root]
-    while children.get(path[-1]["name"]):
-        path.append(max(children[path[-1]["name"]],
-                        key=lambda s: s["end_ms"]))
-    return path
-
-
-def critical_path_ms(spans: list[dict]) -> float:
-    path = critical_path(spans)
-    return path[-1]["end_ms"] - path[0]["start_ms"]
-
-
-def slowest_span(spans: list[dict]) -> dict:
-    return max((s for s in spans if s["kind"] != "root"),
-               key=lambda s: s["dur_ms"])
-
-
-def failed_spans(spans: list[dict]) -> list[dict]:
-    return [s for s in spans if s["status"] == "error"]
-
-
-def main() -> None:
-    spans = build_trace()
-    for s in spans:
-        print(f"span {s['name']:<22} kind={s['kind']:<9} "
-              f"start {s['start_ms']:>7.1f} ms  dur {s['dur_ms']:>6.1f} ms  {s['status']}")
-    path = critical_path(spans)
-    print(f"total time: {total_ms(spans):.1f} ms")
-    print(f"critical path: {' -> '.join(s['name'] for s in path)}")
-    print(f"critical path time: {critical_path_ms(spans):.1f} ms "
-          f"(request cannot finish before the finishing chain ends)")
-    slow = slowest_span(spans)
-    print(f"slowest span: {slow['name']} ({slow['dur_ms']:.1f} ms)")
-    for f in failed_spans(spans):
-        print(f"failed span: {f['name']} (status {f['status']})")
-    print("traceweave demo complete")
-
-
-if __name__ == "__main__":
-    main()
+# TODO (written live in the session): total_ms, critical_path,
+# critical_path_ms, slowest_span, failed_spans and main — the analysis
+# the lesson builds on top of the span table above.
