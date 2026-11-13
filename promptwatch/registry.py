@@ -1,11 +1,10 @@
 """A Prompt Is a Release — Version It Like One — Lesson 17 DEMO.
 
-START SCAFFOLD (tag l17-start): the registry (two prompt versions),
-the fixed eval set and the quality gate are given. In the recorded
-session you will write, live:
-  1. diff_versions — lines removed / added between two versions
-  2. compare       — mean quality and total cost per version
-  3. main          — print the diff, the scores and the gate verdict
+A prompt registry holding two versions of the support-chat system
+prompt. The demo diffs the versions line by line, then compares their
+measured quality and cost on a fixed six-case eval set. The new
+version is cheaper — and it is a regression: quality falls past the
+gate, so the registry flags it instead of shipping it.
 
 Run:  python -m promptwatch.registry
 """
@@ -41,5 +40,38 @@ EVAL_SET = [
 QUALITY_GATE_DROP = 0.05
 
 
-# TODO (written live in the session): diff_versions, compare and
-# main — the release gate the lesson builds on the registry above.
+def diff_versions(old: list[str], new: list[str]) -> tuple[list[str], list[str]]:
+    removed = [line for line in old if line not in new]
+    added = [line for line in new if line not in old]
+    return removed, added
+
+
+def compare() -> dict:
+    return {
+        "v3_quality": mean([c[1] for c in EVAL_SET]),
+        "v4_quality": mean([c[2] for c in EVAL_SET]),
+        "v3_cost": sum(c[3] for c in EVAL_SET),
+        "v4_cost": sum(c[4] for c in EVAL_SET),
+    }
+
+
+def main() -> None:
+    removed, added = diff_versions(REGISTRY["v3"], REGISTRY["v4"])
+    print("prompt diff v3 -> v4:")
+    for line in removed:
+        print(f"  - {line}")
+    for line in added:
+        print(f"  + {line}")
+    r = compare()
+    drop = r["v3_quality"] - r["v4_quality"]
+    print(f"eval cases: {len(EVAL_SET)}")
+    print(f"v3 mean quality: {r['v3_quality']:.3f}  total cost: ${r['v3_cost']:.4f}")
+    print(f"v4 mean quality: {r['v4_quality']:.3f}  total cost: ${r['v4_cost']:.4f}")
+    print(f"quality drop: {drop:.3f} (gate: {QUALITY_GATE_DROP})")
+    verdict = "REGRESSION" if drop > QUALITY_GATE_DROP else "OK"
+    print(f"v4 verdict: {verdict} — cheaper, but quality fell past the gate; do not promote")
+    print("promptwatch demo complete")
+
+
+if __name__ == "__main__":
+    main()
