@@ -1,12 +1,10 @@
 """Grade the Grader Before You Trust It — Lesson 21 DEMO.
 
-START SCAFFOLD (tag l21-start): the fixed case set — twelve answers
-humans have already labelled, with the judge's scores and word
-counts — and the pass rule are given. In the recorded session you
-will write, live:
-  1. audit — agreement with the humans, and the verbosity probe:
-     verbose wrong answers vs concise correct ones
-  2. main  — print every case, the agreement, and the bias verdict
+An LLM judge scores twelve fixed answers that humans have already
+labelled. The audit measures agreement honestly — and finds the
+planted bias: the judge rewards length, so verbose wrong answers
+outscore concise right ones. A judge you have not audited is just a
+second model hallucinating with confidence.
 
 Run:  python -m judgeaudit.audit
 """
@@ -37,5 +35,35 @@ def judge_pass(score: float) -> bool:
     return score >= PASS_AT
 
 
-# TODO (written live in the session): audit and main — the audit
-# harness the lesson builds on the case set above.
+def audit() -> dict:
+    agree = sum(1 for _, human, score, _ in CASES if judge_pass(score) == human)
+    verbose_wrong = [s for _, h, s, w in CASES if not h and w >= VERBOSE_WORDS]
+    concise_right = [s for _, h, s, w in CASES if h and w < 100]
+    return {
+        "agreement": agree / len(CASES),
+        "verbose_wrong_mean": mean(verbose_wrong),
+        "concise_right_mean": mean(concise_right),
+        "verbose_wrong_n": len(verbose_wrong),
+        "concise_right_n": len(concise_right),
+    }
+
+
+def main() -> None:
+    for cid, human, score, words in CASES:
+        mark = "AGREE" if judge_pass(score) == human else "DISAGREE"
+        print(f"{cid}: human={'pass' if human else 'fail'} "
+              f"judge={score:.2f} ({'pass' if judge_pass(score) else 'fail'}) "
+              f"words={words} {mark}")
+    r = audit()
+    print(f"cases: {len(CASES)}")
+    print(f"judge-human agreement: {r['agreement']:.3f}")
+    print(f"verbosity bias: verbose wrong answers (n={r['verbose_wrong_n']}) "
+          f"mean judge score {r['verbose_wrong_mean']:.3f} vs concise correct "
+          f"answers (n={r['concise_right_n']}) mean {r['concise_right_mean']:.3f}")
+    biased = r["verbose_wrong_mean"] > r["concise_right_mean"]
+    print(f"bias detected: {biased} — the judge rewards length, not correctness")
+    print("judgeaudit demo complete")
+
+
+if __name__ == "__main__":
+    main()
