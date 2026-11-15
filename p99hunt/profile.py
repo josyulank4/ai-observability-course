@@ -1,46 +1,28 @@
 """The Mean Is a Lie Your Users Don't Live In — Lesson 29 DEMO.
 
-A latency profiler over 500 requests: p50, p95 and p99 are computed
-per pipeline stage (queue, retrieval, time-to-first-token,
-generation), never just for the total. The hunt ends with a name:
-the stage whose p99 dominates the tail owns the optimisation budget.
+START SCAFFOLD (tag l29-start): the profiler's raw material is
+given — the shared telemetry stream, and a means-only summary
+someone wrote first, which rates every stage calm and generation
+merely "the biggest". In the recorded session you will write, live:
+  1. profile       — p50, p95 and p99 per stage, from the same data
+  2. dominant_p99  — name the stage that owns the tail
+  3. main          — print the table and the verdict
 
 Run:  python -m p99hunt.profile
 """
 from __future__ import annotations
 
-from obscommon import STAGES, gen_events, percentile
+from obscommon import STAGES, gen_events, mean, percentile
 
 LABELS = {"queue_ms": "queue", "retrieval_ms": "retrieval",
           "ttft_ms": "ttft", "generation_ms": "generation"}
 
 
-def profile(events: list[dict]) -> dict[str, dict[str, float]]:
-    return {stage: {"p50": percentile([e[stage] for e in events], 50),
-                    "p95": percentile([e[stage] for e in events], 95),
-                    "p99": percentile([e[stage] for e in events], 99)}
-            for stage in STAGES}
+def stage_means(events: list[dict]) -> dict[str, float]:
+    """The first attempt: one mean per stage. (Kept for contrast —
+    the hunt replaces it; a mean cannot see a tail.)"""
+    return {stage: mean([e[stage] for e in events]) for stage in STAGES}
 
 
-def dominant_p99(prof: dict[str, dict[str, float]]) -> str:
-    return max(STAGES, key=lambda s: prof[s]["p99"])
-
-
-def main() -> None:
-    events = gen_events(n=500, seed=42)
-    prof = profile(events)
-    print(f"requests profiled: {len(events)}")
-    for stage in STAGES:
-        p = prof[stage]
-        print(f"stage {LABELS[stage]:<10} p50 {p['p50']:>8.1f} ms  "
-              f"p95 {p['p95']:>8.1f} ms  p99 {p['p99']:>8.1f} ms")
-    total_p99 = percentile([e["total_ms"] for e in events], 99)
-    dom = dominant_p99(prof)
-    print(f"total p99: {total_p99:.1f} ms")
-    print(f"dominant p99 stage: {LABELS[dom]} ({prof[dom]['p99']:.1f} ms "
-          f"of the {total_p99:.1f} ms tail)")
-    print("p99hunt demo complete")
-
-
-if __name__ == "__main__":
-    main()
+# TODO (written live in the session): profile, dominant_p99 and
+# main — the percentile hunt the lesson runs on the stream above.
