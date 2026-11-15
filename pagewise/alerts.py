@@ -1,10 +1,10 @@
-"""Page on the Budget, Not on the Blip — Lesson 37 DEMO (SCAFFOLD).
+"""Page on the Budget, Not on the Blip — Lesson 37 DEMO.
 
-Starting point for the hands-on session: the incident record and the
-error-budget math are here, and so is the paging rule most teams
-start with — page the instant a day's error rate crosses one percent.
-Run it and count the pages. The burn-rate rule does not exist yet;
-that is what the session builds.
+SLO and error-budget math, then an alert simulation on fourteen fixed
+days of incident data. The naive rule pages the instant the error rate
+crosses 1% — and cries wolf all week. The burn-rate rule pages only
+when the budget is being spent fast enough to matter. Same data, same
+incidents: one pager trains the team to ignore it, the other doesn't.
 
 Run:  python -m pagewise.alerts
 """
@@ -13,6 +13,7 @@ from __future__ import annotations
 SLO = 0.999                      # 99.9% of requests must succeed
 MONTHLY_REQUESTS = 1_000_000
 NAIVE_THRESHOLD = 0.01           # page when a day's error rate > 1%
+BURN_PAGE_AT = 2.0               # page when budget burn rate > 2x
 
 # Fixed incident record: (day, requests, errors). Two real incidents
 # (days 4 and 11) hide among one-day blips that self-recover.
@@ -30,18 +31,35 @@ def error_budget() -> float:
     return MONTHLY_REQUESTS * (1 - SLO)
 
 
-def naive_pages() -> list:
-    return [day for day, req, err in DAYS if err / req > NAIVE_THRESHOLD]
+def burn_rate(errors: int, requests: int) -> float:
+    """Budget burn: observed error rate relative to the SLO allowance."""
+    return (errors / requests) / (1 - SLO)
+
+
+def simulate() -> dict:
+    naive, burn = [], []
+    for day, req, err in DAYS:
+        if err / req > NAIVE_THRESHOLD:
+            naive.append(day)
+        if burn_rate(err, req) > BURN_PAGE_AT and err / req > 0.03:
+            burn.append(day)
+    return {"naive_pages": naive, "burn_pages": burn,
+            "naive_false": [d for d in naive if d not in REAL_INCIDENTS],
+            "burn_false": [d for d in burn if d not in REAL_INCIDENTS]}
 
 
 def main() -> None:
     print(f"SLO: {SLO:.3f} over {MONTHLY_REQUESTS:,} monthly requests")
     print(f"monthly error budget: {error_budget():,.0f} errors")
-    pages = naive_pages()
-    false_pages = [d for d in pages if d not in REAL_INCIDENTS]
+    r = simulate()
     print(f"days simulated: {len(DAYS)} (real incident days: {len(REAL_INCIDENTS)})")
-    print(f"naive threshold pages: {len(pages)} (false pages: {len(false_pages)})")
-    print("TODO: the burn-rate rule does not exist yet")
+    print(f"naive threshold pages: {len(r['naive_pages'])} "
+          f"(false pages: {len(r['naive_false'])})")
+    print(f"burn-rate pages: {len(r['burn_pages'])} "
+          f"(false pages: {len(r['burn_false'])})")
+    print(f"burn-rate caught all real incidents: "
+          f"{set(r['burn_pages']) == REAL_INCIDENTS}")
+    print("pagewise demo complete")
 
 
 if __name__ == "__main__":
