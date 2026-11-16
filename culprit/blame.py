@@ -1,12 +1,11 @@
-"""Four Agents, One Bad Answer — Find the First — Lesson 45 DEMO (SCAFFOLD).
+"""Four Agents, One Bad Answer — Find the First — Lesson 45 DEMO.
 
-Starting point for the hands-on session: a multi-agent pipeline
-(router -> researcher -> drafter -> reviewer) produced one failed
-answer, and every agent's output carries a quality check. The only
-blame rule here is the one most teams start with — blame the agent
-that touched the answer last. Run it and meet the accused. The
-execution-order localiser does not exist yet; that is what the
-session builds.
+A multi-agent pipeline (router -> researcher -> drafter -> reviewer)
+produced one failed answer. Every agent's output carries a quality
+check, and the trace graph is walked in execution order: blame lands
+on the FIRST agent whose output failed its check — the researcher,
+who invented a refund window. Downstream agents inherited the error;
+punishing them would fix nothing.
 
 Run:  python -m culprit.blame
 """
@@ -30,10 +29,26 @@ def trace_graph() -> dict[str, list[str]]:
     return {a: ([dep] if dep else []) for a, dep, *_ in AGENTS}
 
 
-def blame_last() -> dict:
-    name, dep, check, score, note = AGENTS[-1]
-    return {"agent": name, "check": check, "score": score,
-            "note": note, "depends_on": dep}
+def first_failure() -> dict:
+    for name, dep, check, score, note in AGENTS:
+        if score < QUALITY_FLOOR:
+            return {"agent": name, "check": check, "score": score,
+                    "note": note, "depends_on": dep}
+    return {}
+
+
+def downstream_of(agent: str) -> list[str]:
+    seen, frontier = [], [agent]
+    graph = {a: dep for a, dep, *_ in AGENTS}
+    changed = True
+    while changed:
+        changed = False
+        for name, dep in graph.items():
+            if dep in frontier and name not in seen and name != agent:
+                seen.append(name)
+                frontier.append(name)
+                changed = True
+    return seen
 
 
 def main() -> None:
@@ -41,8 +56,14 @@ def main() -> None:
         state = "pass" if score >= QUALITY_FLOOR else "FAIL"
         print(f"agent {name:<10} depends_on={dep or '-':<10} "
               f"check '{check}': {score:.2f} {state} — {note}")
-    accused = blame_last()
-    print(f"naive blame: {accused['agent']} — last to touch the answer")
+    culprit = first_failure()
+    print(f"first failing agent: {culprit['agent']} "
+          f"(score {culprit['score']:.2f} on '{culprit['check']}')")
+    print(f"root cause: {culprit['note']}")
+    inheritors = downstream_of(culprit["agent"])
+    print(f"downstream agents that inherited the error: {', '.join(inheritors)}")
+    print(f"blame: {culprit['agent']} — fix grounding there, not the whole chain")
+    print("culprit demo complete")
 
 
 if __name__ == "__main__":
