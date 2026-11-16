@@ -70,6 +70,23 @@ def run_checks() -> tuple[list[str], list[str]]:
     return checks, warnings
 
 
+def review() -> tuple[int, int, int]:
+    """SKETCH (l51-start) — the review that never runs.
+
+    The checklist sections are named and every grade is a promise:
+    five NOT RUN lines, and below them a verdict the sketch asserts
+    without grading a single item. The lesson replaces the sketch
+    with a review that walks all 22 Appendix A items and grades
+    each one from evidence the run itself produced — or says OPEN,
+    with the reason, where no run can evidence it.
+    """
+    print("== production observability checklist (Appendix A) ==")
+    for section in ("instrumentation", "quality", "cost and performance",
+                    "alerting and response", "debugging readiness"):
+        print(f"review [NOT RUN] {section}")
+    return 0, 0, 0
+
+
 def main() -> None:
     events = gen_events(n=200, seed=42)
     print("== support-chat observability report ==")
@@ -82,6 +99,8 @@ def main() -> None:
         print(f"warning: {w}")
     verdict = "SHIP" if all(ok for _, ok in checks) else "HOLD"
     print(f"verdict: {verdict}")
+    review()
+    print("review verdict: SHIP")
     print("watchstack demo complete")
 
 
